@@ -8,7 +8,7 @@ import os,sys,random
 #
 # Contact: svein+roed 'a+t' Gmail
 #
-# Version 0.5 hereby released :
+# This was a just-for-fun learning project that I had laying around, comments welcome:)
 #
 # Castling
 # En passant
