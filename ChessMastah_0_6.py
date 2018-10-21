@@ -4,7 +4,7 @@ import os,sys,random
 # Chessmastah, started Jan 2012 by Svein Arne Roed,
 # updated for Python 3 oct 2018
 #
-# will be available at github or gitlab
+# https://github.com/sveinarneroed/ChessMastah/blob/master/ChessMastah_0_6.py
 #
 # Contact: svein+roed 'a+t' Gmail
 # 
