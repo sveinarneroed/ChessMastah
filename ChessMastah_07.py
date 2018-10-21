@@ -10,6 +10,7 @@ import os,sys,random,subprocess,cProfile
 # * Python 3
 # * self.validmoves now updated once per turn per player, instead of calculated for every potential move,
 #   this saves on average 180k function calls to player.canmoveto()
+# * random computer will try to capture opponent if possible(small step up from pure random)
 #
 # Features :
 # Castling
@@ -20,10 +21,7 @@ import os,sys,random,subprocess,cProfile
 # * no possible moves (and isn't in check)
 # * 50 consecutive moves without movement of a Pawn or a capture
 # Various fixes and cleanup, thanks to cProfile - more efficient code
-# Play against (random) computer
-#
-# "AI" not rewritten to classes yet, so computer is simply picking
-# a random move.
+# Play against human or (random) computer
 #
 # Thanks to python-forum.org's users Akavall and Micseydel
 # for constructive feedback.
