@@ -10,8 +10,7 @@ import os,sys,random
 # 
 # New in version 06:
 # Python 3
-# Different AI engines TODO 
-# Faster(f'strings, better generators?, cprofile TODO
+# Faster(f'strings, better generators)
 #
 # Features :
 # Castling
