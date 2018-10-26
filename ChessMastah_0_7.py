@@ -1,15 +1,18 @@
-#!/usr/bin/env python
-import os,sys,random
+#!/usr/bin/env python3
+import os,sys,random,subprocess,cProfile
 
-# Chessmastah, started Jan 2012 by Svein Arne Roed
-#
-# Available at https://sites.google.com/site/marsarsite/files or
-# http://www.python-forum.org/pythonforum/viewtopic.php?f=2&t=31849
+# Chessmastah, Jan 2012 by Svein Arne Roed,
+# updated for Python 3 oct 2018 (>=3.6)
 #
 # Contact: svein+roed 'a+t' Gmail
+# 
+# New in version 07:
+# * Python 3
+# * self.validmoves now updated once per turn per player, instead of calculated for every potential move,
+#   this saves on average 180k function calls to player.canmoveto()
+# * random computer will try to capture opponent if possible(small step up from pure random)
 #
-# This was a just-for-fun learning project that I had laying around, comments welcome:)
-#
+# Features :
 # Castling
 # En passant
 # Choice between Knight and Queen when promoting a Pawn
@@ -18,16 +21,13 @@ import os,sys,random
 # * no possible moves (and isn't in check)
 # * 50 consecutive moves without movement of a Pawn or a capture
 # Various fixes and cleanup, thanks to cProfile - more efficient code
-# Play against (random) computer
-#
-# "AI" not rewritten to classes yet, so computer is simply picking
-# a random move.
+# Play against human or (random) computer
 #
 # Thanks to python-forum.org's users Akavall and Micseydel
 # for constructive feedback.
 
 
-class Player(object):
+class Player():
 
     allsquares = [(x, y) for x in range(8) for y in range(8)]
     dullmoves = 0
@@ -40,12 +40,13 @@ class Player(object):
         self.can_castle_long_this_turn  = False
         self.can_castle_short_this_turn = False
         self.playedturns = 0
+        self.validmoves = []
 
     def __str__(self):
         if self.nature is 'AI':
-            return self.name+' ('+self.nature+')'+' as '+self.colour
+            return f'{self.name} ({self.nature}) as {self.colour}'
         else:
-            return self.name+' as '+self.colour
+            return f'{self.name} as {self.colour}'
 
     def set_opponent(self, opponent):
         self.opponent = opponent
@@ -61,7 +62,7 @@ class Player(object):
             if board[mine].piecename is 'k':
                 return mine
 
-    def validmoves(self, board):
+    def get_validmoves(self, board):
         self.set_castling_flags(board)
 
         mypieces=self.getpieces(board)
@@ -107,6 +108,7 @@ class Player(object):
                     return True
 
     def getposition(self, move):
+        # ord("a") is 97, ord("b") is 98 and so forth, matching grid after -97
         startcol  = int(ord(move[0].lower())-97)
         startrow  = int(move[1])-1
         targetcol = int(ord(move[2].lower())-97)
@@ -118,7 +120,7 @@ class Player(object):
 
     def reacheddraw(self, board):
 
-        if not list(self.validmoves(board)) and not self.isincheck(board):
+        if not self.validmoves and not self.isincheck(board):#now redundant as validmoves are precalculated
             return True
 
         if len(list(self.getpieces(board))) == \
@@ -129,17 +131,17 @@ class Player(object):
             if self.nature is 'AI':
                 return True
             else:
-                if raw_input("Call a draw? (yes/no) : ") in ['yes','y','Yes']:
+                if input("Call a draw? (yes/no) : ").lower() in ['yes','y']:
                     return True
 
     def ischeckmate(self, board):
 
-        if not list(self.validmoves(board)) and self.isincheck(board):
+        if not self.validmoves and self.isincheck(board):
             return True
 
     def turn(self, board):
        
-        turnstring = "\n%s's turn," % self.name
+        turnstring = f"\n{self.name}'s turn,"
         warning = " *** Your King is in check *** "
 
         if self.isincheck(board):
@@ -147,25 +149,54 @@ class Player(object):
 
         return turnstring
 
+    def getRandomMove(self, board):
+        return random.choice(self.validmoves)
+    
+    def getRandomCapture(self, board):
+        """ Of possible captures, return a random one """
+
+        # Get list of computer's enemies
+        enemylist = self.opponent.getpieces(board)
+
+        # Find all possible captures
+        potentialCaptures = []
+        for enemy in enemylist:
+            for move in self.validmoves:
+                if enemy in move:
+                    potentialCaptures.append([move[0],enemy])
+
+        # If no possible captures, pick a random (non-capturing) move
+        if not potentialCaptures:
+            return self.getRandomMove(board)
+
+        else:
+            # From pieces that can capture enemy, pick a random piece
+            randompiece = random.choice(potentialCaptures)
+            start = randompiece[0]
+
+            # Find target
+            # Using the chosen piece, pick a random capture
+            target = random.choice(randompiece[1:])
+
+            return start, target
+
     def getmove(self, board):
 
-        print "\n"
         while True:
 
             # If player is computer, get a move from computer
             if self.nature is 'AI':
-                #return aiengine.getAImove(self, board)
-                return random.choice(list(self.validmoves(board)))
+                return self.getRandomCapture(board)
 
             else:
                 # Player is human, get a move from input
-                move=raw_input("\nMake a move : ")
+                move=input("\nMake a move : ")
                 if move == 'exit':
                     break
 
                 else:
                     start, target = self.getposition(move)
-                    if (start, target) in self.validmoves(board):
+                    if (start, target) in self.validmoves:
                         return start, target
                     else:
                         raise IndexError
@@ -266,7 +297,7 @@ class Player(object):
             promoteto = 'empty'
             while promoteto.lower() not in ['kn','q']:
                 promoteto = \
-                raw_input("You may promote your pawn:\n[Kn]ight [Q]ueen : ")
+                input("You may promote your pawn:\n[Kn]ight [Q]ueen : ")
 
         board[target].promote(promoteto)
 
@@ -416,8 +447,7 @@ class Player(object):
             if target[1]-start[1] == -2 and start[0] == target[0]:
                 return True
 
-class Piece(object):
-
+class Piece():
     def __init__(self, piecename, position, player):
         self.colour    = player.colour
         self.nature    = player.nature
@@ -426,6 +456,15 @@ class Piece(object):
         self.nrofmoves = 0
 
     def __str__(self):
+        if self.colour is 'white':
+            if self.piecename is 'p':
+                return 'WP'
+            else:
+                return self.piecename.upper()
+        else:
+            return self.piecename
+        
+    def __repr__(self): #redundant, works, leaving for now
         if self.colour is 'white':
             if self.piecename is 'p':
                 return 'WP'
@@ -442,7 +481,7 @@ class Piece(object):
         self.piecename = to.lower()
 
 
-class Game(object):
+class Game():
 
     def __init__(self, playera, playerb):
 
@@ -475,59 +514,63 @@ class Game(object):
 
         topbottom=['*','a','b','c','d','e','f','g','h','*']
         sides=['1','2','3','4','5','6','7','8']
-        tbspacer=' '*6
-        rowspacer=' '*5
+        tbspacer=' '*3
+        rowspacer=' '*3
         cellspacer=' '*4
         empty=' '*3
-
-        print
+        
+        print("\n")
         for field in topbottom:
-            print "%4s" % field,
-        print
+            print(f"{field:4s}", end=" ")
+        print("\n")
 
-        print tbspacer+("_"*4+' ')*8
+        print(f"{tbspacer} {('_'*4+' ')*8}")
 
         for row in range(8):
-            print(rowspacer+(('|'+cellspacer)*9))
-            print "%4s" % sides[row],('|'),
+            print(f"{rowspacer}{('|'+cellspacer)*9}")
+            print(f"{sides[row]:3s}|", end=" ")
             for col in range(8):
                 if (row, col) not in self.board:
-                    print empty+'|',
+                    print(f"{empty}|", end=" ")
                 else:
-                    print "%2s" % self.board[(row, col)],('|'),
-            print "%2s" % sides[row],
-            print
-            print rowspacer+'|'+(("_"*4+'|')*8)
-        print
+                    piece = self.board[(row, col)].__str__()
+                    print(f"{piece:2s} |", end=" ")
+            print(f"{sides[row]:2s}", end=" ")
+            print("")
+            print(f"{rowspacer}|{('_'*4+'|')*8}")
+        print("\n")
 
         for field in topbottom:
-            print "%4s" % field,
-
-        print "\n"
+            print(f"{field:4s}", end=" ")
+        print("\n")
 
     def refreshscreen(self, player):
         if player.colour is 'white':
             playera, playerb = player, player.opponent
         else:
             playera, playerb = player.opponent, player
-        os.system('clear')
-        print "   Now playing: %s vs %s" % (playera, playerb)
+        clear()
+
+        print(f"   Now playing: {playera} vs {playerb}")
         self.printboard()
 
     def run(self, player):
-
+            
         self.refreshscreen(player)
 
         while True:
 
-            print player.turn(self.board)
+            # updating validmoves for players using current board
+            player.validmoves = list(player.get_validmoves(self.board))
+
+            print(player.turn(self.board))
 
             try:
                 start, target = player.getmove(self.board)
 
             except (IndexError, ValueError):
                 self.refreshscreen(player)
-                print "\n\nPlease enter a valid move."
+                print("\n\nPlease enter a valid move.")
 
             except TypeError:
                 # No start, target if user exit
@@ -548,6 +591,7 @@ class Game(object):
                         player.pawnpromotion(self.board, target)
 
                 player = player.opponent
+                player.validmoves = list(player.get_validmoves(self.board))
 
                 if player.reacheddraw(self.board):
                     return 1, player
@@ -564,20 +608,28 @@ class Game(object):
         winner = player.opponent.name
 
         if result == 1:
-            endstring = "\n%s and %s reached a draw." % (winner, looser)
+            endstring = f"\n{winner} and {looser} reached a draw."
         elif result == 2:
-            endstring = "\n%s put %s in checkmate." % (winner, looser)
+            endstring = f"\n{winner} put {looser} in checkmate."
 
-        os.system('clear')
+        clear()
         self.printboard()
 
         return endstring
+    
+def clear():
+    if os.name in ('nt','dos'):
+        subprocess.call("cls")
+    elif os.name in ('linux','osx','posix'):
+        subprocess.call("clear")
+    else:
+        print(("\n") * 120)
 
 def newgame():
 
-    os.system('clear')
+    clear()
 
-    print """
+    print("""
       Welcome to Chessmastah, the fantastic console chess environment.
       Please type in the name of the contestants.
 
@@ -586,7 +638,7 @@ def newgame():
 
       Or if you fancy, leave both names blank and watch the computer
       duke it out with itself.
-      """
+      """)
 
     playera, playerb = getplayers()
     playera.set_opponent(playerb)
@@ -594,16 +646,16 @@ def newgame():
 
     game = Game(playera, playerb)
 
-    infostring = \
-    """
-    Very well, %s and %s, let's play.
+    infostring = (
+    f"Very well, {playera.name} and {playerb.name}, let's play.\n"
     
-    Player A: %s (uppercase)
-    Player B: %s (lowercase)
-    (Use moves on form 'a2b3' or type 'exit' at any time.) """
-    print infostring % (playera.name, playerb.name, playera, playerb)
+    f"Player A: {playera} (uppercase)\n"
+    f"Player B: {playerb} (lowercase)\n"
+    f"(Use moves on form 'a2b3' or type 'exit' at any time.)\n"
+    )
+    print(infostring)
 
-    raw_input("\n\nPress [Enter] when ready")
+    input("\n\nPress [Enter] when ready")
 
     # WHITE starts
     player = playera
@@ -616,20 +668,20 @@ def newgame():
         pass
 
     else:
-        print game.end(player, result)
-        raw_input("\n\nPress any key to continue")
+        print(game.end(player, result))
+        input("\n\nPress any key to continue")
 
 def getplayers():
 
     ainames = ['chesschick','foxysquare']
 
-    name1 = raw_input("\nPlayer A (white): ")
+    name1 = input("\nPlayer A (white): ")
     if not name1:
         playera = Player('white', 'AI', ainames[0])
     else:
         playera = Player('white', 'human', name1)
 
-    name2 = raw_input("\nPlayer B (black): ")
+    name2 = input("\nPlayer B (black): ")
     if not name2:
         playerb = Player('black', 'AI', ainames[1])
     else:
@@ -648,10 +700,10 @@ def main():
         while True:
             newgame()
 
-            choice=raw_input(menu)
+            choice=input(menu)
 
             if choice == 'exit':
-                print "\nAs you wish. Welcome back!"
+                print("\nAs you wish. Welcome back!")
                 break
 
     except KeyboardInterrupt:
