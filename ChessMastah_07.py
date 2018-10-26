@@ -2,7 +2,7 @@
 import os,sys,random,subprocess,cProfile
 
 # Chessmastah, Jan 2012 by Svein Arne Roed,
-# updated for Python 3 oct 2018
+# updated for Python 3 oct 2018 (>=3.6)
 #
 # Contact: svein+roed 'a+t' Gmail
 # 
