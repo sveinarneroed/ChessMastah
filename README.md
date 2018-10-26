@@ -5,7 +5,7 @@ updated for Python 3 oct 2018
 Contact: svein+roed 'a+t' Gmail
 
 New in version 07:
-* Python 3
+* Python 3, because f-strings it needs Python 3.6+
 * self.validmoves now updated once per turn per player, instead of calculated for every potential move,
   this saves over 180k function calls to player.canmoveto()
   
