@@ -1,4 +1,4 @@
-# ChessMastah, chess written in Python for terminals
+## ChessMastah, chess written in Python for terminals
 
 Chessmastah, Jan 2012 by Svein Arne Roed,
 updated for Python 3 oct 2018
@@ -9,7 +9,7 @@ New in version 07:
 * self.validmoves now updated once per turn per player, instead of calculated for every potential move,
   this saves over 180k function calls to player.canmoveto()
   
-## Features :
+### Features :
 * Castling
 * En passant
 * Choice between Knight and Queen when promoting a Pawn
